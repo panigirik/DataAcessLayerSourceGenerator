@@ -1,6 +1,6 @@
 ﻿using System.Collections.Immutable;
 using System.Linq;
-using DAL.SourceGen.Attributes;
+using Dal.SourceGen.Abstractions.Attributes;
 using DAL.SourceGen.Models;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;

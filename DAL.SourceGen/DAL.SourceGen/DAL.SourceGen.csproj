@@ -24,5 +24,9 @@
         <PackageReference Include="Scriban" Version="6.5.2" />
     </ItemGroup>
 
+    <ItemGroup>
+      <ProjectReference Include="..\..\Dal.SourceGen.Abstractions\Dal.SourceGen.Abstractions.csproj" />
+    </ItemGroup>
+
 
 </Project>
