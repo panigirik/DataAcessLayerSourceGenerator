@@ -4,8 +4,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DAL.SourceGen", "DAL.Source
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DAL.SourceGen.Sample", "DAL.SourceGen\DAL.SourceGen.Sample\DAL.SourceGen.Sample.csproj", "{7286CD6C-730C-42B6-AE25-5DEC0C6447C5}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dal.SourceGen.Abstractions", "Dal.SourceGen.Abstractions\Dal.SourceGen.Abstractions.csproj", "{915C1F07-7AC9-4937-95C8-2FFD3A8832FA}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -20,9 +18,5 @@ Global
 		{7286CD6C-730C-42B6-AE25-5DEC0C6447C5}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7286CD6C-730C-42B6-AE25-5DEC0C6447C5}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7286CD6C-730C-42B6-AE25-5DEC0C6447C5}.Release|Any CPU.Build.0 = Release|Any CPU
-		{915C1F07-7AC9-4937-95C8-2FFD3A8832FA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{915C1F07-7AC9-4937-95C8-2FFD3A8832FA}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{915C1F07-7AC9-4937-95C8-2FFD3A8832FA}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{915C1F07-7AC9-4937-95C8-2FFD3A8832FA}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

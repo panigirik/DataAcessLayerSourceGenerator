@@ -1,9 +1,8 @@
 ﻿using System.Linq;
-using Dal.SourceGen.Abstractions.Attributes;
+using DAL.SourceGen.Enums;
 using DAL.SourceGen.Models;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.Extensions.DependencyInjection;
 using Scriban;
 
 namespace DAL.SourceGen.SourceGenerators;
@@ -13,78 +12,88 @@ public sealed class RepositoryGenerator : IIncrementalGenerator
 {
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
-        var repoInterfaces = context.SyntaxProvider
+        // 🔹 Генерация атрибутов
+        context.RegisterPostInitializationOutput(ctx =>
+        {
+            ctx.AddSource("RepositoryAttributes.g.cs", """
+using System;
+
+namespace DAL.SourceGen.Attributes;
+
+public enum ServiceLifetime
+{
+    Singleton,
+    Scoped,
+    Transient
+}
+
+[AttributeUsage(AttributeTargets.Interface)]
+public sealed class RepositoryAttribute : Attribute
+{
+    public ServiceLifetime Lifetime { get; }
+
+    public RepositoryAttribute(ServiceLifetime lifetime)
+    {
+        Lifetime = lifetime;
+    }
+}
+""");
+        });
+
+        var repos = context.SyntaxProvider
             .CreateSyntaxProvider(
-                static (node, _) => node is InterfaceDeclarationSyntax ids && ids.AttributeLists.Count > 0,
+                static (node, _) => node is InterfaceDeclarationSyntax,
                 static (ctx, _) => ctx.SemanticModel.GetDeclaredSymbol(ctx.Node) as INamedTypeSymbol
             )
             .Where(static s => s is not null)
-            .Where(HasRepositoryAttribute);
+            .Where(HasRepositoryAttribute)
+            .Select(static (s, _) => BuildModel(s!));
 
-        var models = repoInterfaces
-            .Select(static (s, _) => BuildRepositoryModel(s!));
-
-        context.RegisterSourceOutput(models, GenerateRepository);
+        context.RegisterSourceOutput(repos, Generate);
     }
 
-    public static RepositoryModel BuildRepositoryModel(INamedTypeSymbol symbol)
+    private static bool HasRepositoryAttribute(INamedTypeSymbol symbol)
     {
-        var methods = symbol.GetMembers()
-            .OfType<IMethodSymbol>()
-            .Where(m => m.MethodKind == MethodKind.Ordinary)
-            .Select(m => new RepositoryMethod
-            {
-                MethodName = m.Name,
-                ReturnedType = m.ReturnType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
-                Parameters = m.Parameters
-                    .Select(p => new MethodParameter
-                    {
-                        Name = p.Name,
-                        Type = p.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
-                    })
-                    .ToList()
-            })
-            .ToList();
+        return symbol.GetAttributes()
+            .Any(a => a.AttributeClass?.Name == "RepositoryAttribute");
+    }
+
+    internal static RepositoryModel BuildModel(INamedTypeSymbol symbol)
+    {
+        var entityType = symbol.Interfaces
+            .First(i => i.Name == "IRepository")
+            .TypeArguments[0]
+            .ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
 
         var attr = symbol.GetAttributes()
-            .First(a => a.AttributeClass!.Name == nameof(RepositotyAttribute));
+            .First(a => a.AttributeClass?.Name == "RepositoryAttribute");
 
         return new RepositoryModel
         {
             Namespace = symbol.ContainingNamespace.ToDisplayString(),
             InterfaceName = symbol.Name,
             ImplementationName = symbol.Name.Substring(1),
-            EntityType = "UNKNOWN_FOR_NOW",
-            Lifetime = (ServiceLifetime)attr.ConstructorArguments[0].Value!,
-            Methods = methods
+            EntityType = entityType,
+            Lifetime = (ServiceLifetime)attr.ConstructorArguments[0].Value!
         };
     }
 
-    private static void GenerateRepository(SourceProductionContext context, RepositoryModel model)
+    private static void Generate(SourceProductionContext ctx, RepositoryModel model)
     {
-        var template = Template.Parse("""
-namespace {{ Namespace }};
+        var tpl = Template.Parse("""
+                                 namespace {{ Namespace }};
 
-public partial class {{ ImplementationName }} : {{ InterfaceName }}
-{
-{{ for m in Methods }}
-    public {{ m.ReturnedType }} {{ m.MethodName }}(
-{{ for p in m.Parameters }}
-        {{ p.Type }} {{ p.Name }}{{ if !for.last }},{{ end }}
-{{ end }}
-    )
-    {
-        throw new System.NotImplementedException();
-    }
-{{ end }}
-}
-""");
+                                 public partial class {{ ImplementationName }}
+                                     : BaseRepository<{{ EntityType }}>, {{ InterfaceName }}
+                                 {
+                                     public {{ ImplementationName }}(IAppDbContext db)
+                                         : base(db)
+                                     {
+                                     }
+                                 }
+                                 """);
 
-        var code = template.Render(model, m => m.Name);
-        context.AddSource($"{model.ImplementationName}.g.cs", code);
+        ctx.AddSource($"{model.ImplementationName}.g.cs", tpl.Render(model));
     }
 
-    private static bool HasRepositoryAttribute(INamedTypeSymbol symbol)
-        => symbol.GetAttributes()
-            .Any(a => a.AttributeClass?.Name == nameof(RepositotyAttribute));
 }

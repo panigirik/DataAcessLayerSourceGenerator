@@ -1,5 +1,5 @@
 ﻿using System.Collections.Generic;
-using Microsoft.Extensions.DependencyInjection;
+using DAL.SourceGen.Enums;
 
 namespace DAL.SourceGen.Models;
 

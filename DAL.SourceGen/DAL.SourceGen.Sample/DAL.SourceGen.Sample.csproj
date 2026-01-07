@@ -7,13 +7,21 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\Dal.SourceGen.Abstractions\Dal.SourceGen.Abstractions.csproj" />
         <ProjectReference Include="..\DAL.SourceGen\DAL.SourceGen.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false"/>
     </ItemGroup>
 
     <ItemGroup>
-        <None Remove="DDD.UbiquitousLanguageRegistry.txt"/>
-        <AdditionalFiles Include="DDD.UbiquitousLanguageRegistry.txt"/>
+      <Reference Include="Microsoft.Extensions.DependencyInjection.Abstractions">
+        <HintPath>..\..\..\..\SocialNetwork\Netway.Utils\Utils\obj\Debug\net8.0\ref\microsoft.extensions.dependencyinjection.abstractions\10.0.1\lib\netstandard2.0\Microsoft.Extensions.DependencyInjection.Abstractions.dll</HintPath>
+      </Reference>
+
+        <ProjectReference Include="..\DAL.SourceGen\DAL.SourceGen.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.11" />
     </ItemGroup>
 
 </Project>

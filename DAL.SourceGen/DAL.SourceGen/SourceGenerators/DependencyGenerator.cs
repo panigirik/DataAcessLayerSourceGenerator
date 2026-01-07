@@ -1,6 +1,5 @@
 ﻿using System.Collections.Immutable;
 using System.Linq;
-using Dal.SourceGen.Abstractions.Attributes;
 using DAL.SourceGen.Models;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -14,19 +13,22 @@ public sealed class DependencyGenerator : IIncrementalGenerator
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
         var repos = context.SyntaxProvider
-            .CreateSyntaxProvider(static (node, _) => node is InterfaceDeclarationSyntax ids && ids.AttributeLists.Count > 0,
-                static (ctx, _) => ctx.SemanticModel.GetDeclaredSymbol(ctx.Node) as INamedTypeSymbol)
+            .CreateSyntaxProvider(
+                static (node, _) => node is InterfaceDeclarationSyntax,
+                static (ctx, _) => ctx.SemanticModel.GetDeclaredSymbol(ctx.Node) as INamedTypeSymbol
+            )
             .Where(static s => s is not null)
-            .Where(HasRepositoryAttribute)
-            .Select(static (s, _) => RepositoryGenerator.BuildRepositoryModel(s!))
+            .Where(static s => s!.GetAttributes()
+                .Any(a => a.AttributeClass?.Name == "RepositoryAttribute"))
+            .Select(static (s, _) => RepositoryGenerator.BuildModel(s!))
             .Collect();
 
-        context.RegisterSourceOutput(repos, GenerateDi);
+        context.RegisterSourceOutput(repos, Generate);
     }
 
-    private static void GenerateDi(
-        SourceProductionContext context,
-        ImmutableArray<RepositoryModel> repositories)
+    private static void Generate(
+        SourceProductionContext ctx,
+        ImmutableArray<RepositoryModel> repos)
     {
         var template = Template.Parse("""
                                       using Microsoft.Extensions.DependencyInjection;
@@ -35,7 +37,7 @@ public sealed class DependencyGenerator : IIncrementalGenerator
                                       {
                                           public static IServiceCollection AddAutoRepositories(this IServiceCollection services)
                                           {
-                                      {{ for r in repositories }}
+                                      {{ for r in repos }}
                                               services.Add{{ r.Lifetime }}<{{ r.InterfaceName }}, {{ r.ImplementationName }}>();
                                       {{ end }}
                                               return services;
@@ -43,10 +45,6 @@ public sealed class DependencyGenerator : IIncrementalGenerator
                                       }
                                       """);
 
-        var code = template.Render(new { repositories }, m => m.Name);
-        context.AddSource("AutoDataAccessRegistration.g.cs", code);
+        ctx.AddSource("AutoDataAccessRegistration.g.cs", template.Render(new { repos }));
     }
-
-    private static bool HasRepositoryAttribute(INamedTypeSymbol symbol)
-        => symbol.GetAttributes().Any(a => a.AttributeClass?.Name == nameof(RepositotyAttribute));
 }
