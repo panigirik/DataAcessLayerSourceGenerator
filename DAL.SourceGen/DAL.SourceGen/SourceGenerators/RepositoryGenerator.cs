@@ -1,9 +1,9 @@
 ﻿using System.Linq;
+using System.Text;
 using DAL.SourceGen.Enums;
 using DAL.SourceGen.Models;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Scriban;
 
 namespace DAL.SourceGen.SourceGenerators;
 
@@ -12,32 +12,35 @@ public sealed class RepositoryGenerator : IIncrementalGenerator
 {
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
-        // 🔹 Генерация атрибутов
+        // Генерируем атрибуты
         context.RegisterPostInitializationOutput(ctx =>
         {
-            ctx.AddSource("RepositoryAttributes.g.cs", """
-using System;
+            ctx.AddSource(
+                "RepositoryAttributes.g.cs",
+                """
+                using System;
 
-namespace DAL.SourceGen.Attributes;
+                namespace DAL.SourceGen.Attributes;
 
-public enum ServiceLifetime
-{
-    Singleton,
-    Scoped,
-    Transient
-}
+                public enum ServiceLifetime
+                {
+                    Singleton = 1,
+                    Scoped = 2,
+                    Transient = 3
+                }
 
-[AttributeUsage(AttributeTargets.Interface)]
-public sealed class RepositoryAttribute : Attribute
-{
-    public ServiceLifetime Lifetime { get; }
+                [AttributeUsage(AttributeTargets.Interface)]
+                public sealed class RepositoryAttribute : Attribute
+                {
+                    public ServiceLifetime Lifetime { get; }
 
-    public RepositoryAttribute(ServiceLifetime lifetime)
-    {
-        Lifetime = lifetime;
-    }
-}
-""");
+                    public RepositoryAttribute(ServiceLifetime lifetime)
+                    {
+                        Lifetime = lifetime;
+                    }
+                }
+                """
+            );
         });
 
         var repos = context.SyntaxProvider
@@ -49,14 +52,11 @@ public sealed class RepositoryAttribute : Attribute
             .Where(HasRepositoryAttribute)
             .Select(static (s, _) => BuildModel(s!));
 
-        context.RegisterSourceOutput(repos, Generate);
+        context.RegisterSourceOutput(repos, GenerateImplementation);
     }
 
     private static bool HasRepositoryAttribute(INamedTypeSymbol symbol)
-    {
-        return symbol.GetAttributes()
-            .Any(a => a.AttributeClass?.Name == "RepositoryAttribute");
-    }
+        => symbol.GetAttributes().Any(a => a.AttributeClass?.Name == "RepositoryAttribute");
 
     internal static RepositoryModel BuildModel(INamedTypeSymbol symbol)
     {
@@ -67,6 +67,15 @@ public sealed class RepositoryAttribute : Attribute
 
         var attr = symbol.GetAttributes()
             .First(a => a.AttributeClass?.Name == "RepositoryAttribute");
+        var lifetimeValue = (int)attr.ConstructorArguments[0].Value!;
+        var lifetimeEnum = (ServiceLifetime)lifetimeValue;
+        string lifetimeMethod = lifetimeEnum switch
+        {
+            ServiceLifetime.Singleton => "Singleton",
+            ServiceLifetime.Scoped => "Scoped",
+            ServiceLifetime.Transient => "Transient",
+            _ => "Scoped"
+        };
 
         return new RepositoryModel
         {
@@ -74,26 +83,24 @@ public sealed class RepositoryAttribute : Attribute
             InterfaceName = symbol.Name,
             ImplementationName = symbol.Name.Substring(1),
             EntityType = entityType,
-            Lifetime = (ServiceLifetime)attr.ConstructorArguments[0].Value!
+            Lifetime = lifetimeMethod
         };
     }
 
-    private static void Generate(SourceProductionContext ctx, RepositoryModel model)
+    private static void GenerateImplementation(SourceProductionContext ctx, RepositoryModel model)
     {
-        var tpl = Template.Parse("""
-                                 namespace {{ Namespace }};
+        var sb = new StringBuilder();
 
-                                 public partial class {{ ImplementationName }}
-                                     : BaseRepository<{{ EntityType }}>, {{ InterfaceName }}
-                                 {
-                                     public {{ ImplementationName }}(IAppDbContext db)
-                                         : base(db)
-                                     {
-                                     }
-                                 }
-                                 """);
+        sb.AppendLine($"namespace {model.Namespace};");
+        sb.AppendLine();
+        sb.AppendLine($"public partial class {model.ImplementationName}");
+        sb.AppendLine($"    : BaseRepository<{model.EntityType}>, {model.InterfaceName}");
+        sb.AppendLine("{");
+        sb.AppendLine($"    public {model.ImplementationName}(IAppDbContext db)");
+        sb.AppendLine("        : base(db)");
+        sb.AppendLine("    { }");
+        sb.AppendLine("}");
 
-        ctx.AddSource($"{model.ImplementationName}.g.cs", tpl.Render(model));
+        ctx.AddSource($"{model.ImplementationName}.g.cs", sb.ToString());
     }
-
 }

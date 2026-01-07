@@ -1,9 +1,9 @@
 ﻿using System.Collections.Immutable;
 using System.Linq;
+using System.Text;
 using DAL.SourceGen.Models;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Scriban;
 
 namespace DAL.SourceGen.SourceGenerators;
 
@@ -18,33 +18,42 @@ public sealed class DependencyGenerator : IIncrementalGenerator
                 static (ctx, _) => ctx.SemanticModel.GetDeclaredSymbol(ctx.Node) as INamedTypeSymbol
             )
             .Where(static s => s is not null)
-            .Where(static s => s!.GetAttributes()
-                .Any(a => a.AttributeClass?.Name == "RepositoryAttribute"))
+            .Where(static s => s!.GetAttributes().Any(a => a.AttributeClass?.Name == "RepositoryAttribute"))
             .Select(static (s, _) => RepositoryGenerator.BuildModel(s!))
             .Collect();
 
-        context.RegisterSourceOutput(repos, Generate);
+        context.RegisterSourceOutput(repos, GenerateRegistration);
     }
 
-    private static void Generate(
-        SourceProductionContext ctx,
-        ImmutableArray<RepositoryModel> repos)
+    private static void GenerateRegistration(SourceProductionContext ctx, ImmutableArray<RepositoryModel> repos)
     {
-        var template = Template.Parse("""
-                                      using Microsoft.Extensions.DependencyInjection;
+        if (repos.IsDefaultOrEmpty) return;
 
-                                      public static class AutoDataAccessRegistration
-                                      {
-                                          public static IServiceCollection AddAutoRepositories(this IServiceCollection services)
-                                          {
-                                      {{ for r in repos }}
-                                              services.Add{{ r.Lifetime }}<{{ r.InterfaceName }}, {{ r.ImplementationName }}>();
-                                      {{ end }}
-                                              return services;
-                                          }
-                                      }
-                                      """);
+        var sb = new StringBuilder();
+        sb.AppendLine("using Microsoft.Extensions.DependencyInjection;");
+        sb.AppendLine();
+        
+        foreach (var ns in repos.Select(r => r.Namespace).Distinct())
+        {
+            sb.AppendLine($"using {ns};");
+        }
 
-        ctx.AddSource("AutoDataAccessRegistration.g.cs", template.Render(new { repos }));
+        sb.AppendLine();
+        sb.AppendLine("public static class AutoDataAccessRegistration");
+        sb.AppendLine("{");
+        sb.AppendLine("    public static IServiceCollection AddAutoRepositories(this IServiceCollection services)");
+        sb.AppendLine("    {");
+
+        foreach (var r in repos)
+        {
+            sb.AppendLine($"        services.Add{r.Lifetime}<{r.InterfaceFullName}, {r.ImplementationFullName}>();");
+        }
+
+        sb.AppendLine();
+        sb.AppendLine("        return services;");
+        sb.AppendLine("    }");
+        sb.AppendLine("}");
+
+        ctx.AddSource("AutoDataAccessRegistration.g.cs", sb.ToString());
     }
 }

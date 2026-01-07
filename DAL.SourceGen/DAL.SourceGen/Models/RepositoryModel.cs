@@ -1,14 +1,12 @@
-﻿using System.Collections.Generic;
-using DAL.SourceGen.Enums;
+﻿namespace DAL.SourceGen.Models;
 
-namespace DAL.SourceGen.Models;
-
-public sealed record RepositoryModel
+public sealed class RepositoryModel
 {
-    public string Namespace { get; set; }
-    public string InterfaceName { get; set; }
-    public string ImplementationName { get; set; } = null!;
+    public string Namespace { get; set; } = default!;
+    public string InterfaceName { get; set; } = default!;
+    public string ImplementationName { get; set; } = default!;
     public string EntityType { get; set; } = null!;
-    public ServiceLifetime Lifetime { get; set; }
-    public IReadOnlyList<RepositoryMethod> Methods { get; set; } = null!;
+    public string InterfaceFullName => $"global::{Namespace}.{InterfaceName}";
+    public string ImplementationFullName => $"global::{Namespace}.{ImplementationName}";
+    public string Lifetime { get; set; }
 }

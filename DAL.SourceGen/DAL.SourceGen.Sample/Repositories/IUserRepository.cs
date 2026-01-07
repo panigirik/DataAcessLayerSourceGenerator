@@ -1,6 +1,4 @@
-﻿using System;
-using System.Threading.Tasks;
-using DAL.SourceGen.Attributes;
+﻿using DAL.SourceGen.Attributes;
 using DAL.SourceGen.Sample.Entities;
 using ServiceLifetime = DAL.SourceGen.Attributes.ServiceLifetime;
 

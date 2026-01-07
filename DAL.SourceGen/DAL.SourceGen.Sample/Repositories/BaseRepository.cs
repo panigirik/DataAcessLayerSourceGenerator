@@ -7,7 +7,7 @@ namespace DAL.SourceGen.Sample.Repositories;
 
 using Microsoft.EntityFrameworkCore;
 
-public abstract class BaseRepository<TEntity> : IRepository<TEntity> where TEntity : class
+public abstract partial class BaseRepository<TEntity> : IRepository<TEntity> where TEntity : class
 {
     protected readonly IAppDbContext _db;
 
